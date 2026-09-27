@@ -9,6 +9,6 @@ namespace Qubit
     {
         //public Pin ConnectedTo;
         //public Gate Gate; // TODO: needed?
-        public qubit Value;
+        public qubit? Value { get; set; }
     }
 }

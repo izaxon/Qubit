@@ -7,13 +7,15 @@ namespace Qubit.Gates
 {
     public class ControlledNot : Gate
     {
-        public Pin Control;
-        public Pin InputTarget;
-        public Pin OutputTarget;
+        public Pin Control = new Pin();
+        public Pin InputTarget = new Pin();
+        public TwoQubitState? OutputState { get; private set; }
 
         public override void Update()
         {
-            OutputTarget.Value = qubit.CNOT(Control.Value, InputTarget.Value);
+            OutputState = qubit.CNOT(
+                Control.Value ?? throw new InvalidOperationException("Control pin has no qubit."),
+                InputTarget.Value ?? throw new InvalidOperationException("Target pin has no qubit."));
         }
     }
 }
