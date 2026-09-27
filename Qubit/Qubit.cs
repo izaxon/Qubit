@@ -1,225 +1,74 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Diagnostics;
+using System;
 
-// TODO: create filters (=gates) for each operation (at least Not and CNOT)
-// TODO: create way to connect gates in a grid
-// TODO: kolla in http://en.wikipedia.org/wiki/Quantum_gate#Pauli-X_gate
 namespace Qubit
 {
-    /// <summary>
-    /// Qubit class built by knowledge provided in videos by Michael Nielsen 
-    /// ref. http://michaelnielsen.org/blog/quantum-computing-for-the-determined/
-    /// </summary>
-    public class qubit
+    /// <summary>A normalized, immutable single-qubit state.</summary>
+    public sealed class qubit : IEquatable<qubit>
     {
-        /// <summary>
-        /// Alpha (α = |0>) component of the qubit.
-        /// </summary>
-        public complex Alpha;
+        private const double NormalizationTolerance = 1e-10;
 
-        /// <summary>
-        /// Beta (β = |1>) component of the qubit.
-        /// </summary>
-        public complex Beta;
+        public complex Alpha { get; }
+        public complex Beta { get; }
 
-        /// <summary>
-        /// Constructs a qubit.
-        /// </summary>
-        /// <param name="alpha"></param>
-        /// <param name="beta"></param>
         public qubit(complex alpha, complex beta)
         {
-            Debug.Assert(Math.Pow(alpha.Abs(), 2) + Math.Pow(beta.Abs(), 2) - 1 < 0.000001);
-            this.Alpha = alpha;
-            this.Beta = beta;
+            double norm = alpha.Real * alpha.Real + alpha.Imaginary * alpha.Imaginary
+                + beta.Real * beta.Real + beta.Imaginary * beta.Imaginary;
+            if (!double.IsFinite(norm) || Math.Abs(norm - 1) > NormalizationTolerance)
+            {
+                throw new ArgumentException("Qubit amplitudes must have a finite squared norm of one.");
+            }
+
+            Alpha = alpha;
+            Beta = beta;
         }
 
-        /// <summary>
-        /// |1>
-        /// </summary>
-        public static readonly qubit One = new qubit(complex.Zero, complex.One);    // TODO: correct?
+        public static readonly qubit Zero = new qubit(complex.One, complex.Zero);
+        public static readonly qubit One = new qubit(complex.Zero, complex.One);
 
-        /// <summary>
-        /// |0>
-        /// </summary>
-        public static readonly qubit Zero = new qubit(complex.One, complex.Zero);   // TODO: correct?
+        public qubit Not() => new qubit(Beta, Alpha);
 
-        /// <summary>
-        /// [ 0 1 ] [ alpha ]
-        /// [ 1 0 ] [ beta  ]
-        /// </summary>
-        /// <returns></returns>
-        public qubit Not()
-        {
-            return new qubit(Beta, Alpha);
-        }
+        public qubit Hadamard() =>
+            new qubit((Alpha + Beta) / Math.Sqrt(2), (Alpha - Beta) / Math.Sqrt(2));
 
-        /// <summary>
-        /// Hadamard gate
-        ///    1    [ 1  1 ]
-        /// sqrt(2) [ 1 -1 ]
-        /// </summary>
-        /// <returns></returns>
-        public qubit Hadamard()
-        {
-            return new qubit((Alpha + Beta) / Math.Sqrt(2), (Alpha - Beta) / Math.Sqrt(2));
-        }
-
-        /// <summary>
-        /// Rotation gate
-        /// [ cos x  -sin x ]
-        /// [ sin x   cos x ]
-        /// </summary>
-        /// <param name="radians">Rotation in radians.</param>
-        /// <returns></returns>
+        /// <summary>Applies the real rotation matrix [cos -sin; sin cos].</summary>
         public qubit Rotate(double radians)
         {
-            complex alpha;
-            complex beta;
-            alpha = (Math.Cos(radians) + Math.Sin(radians)) * Alpha;
-            beta = (-Math.Sin(radians) + Math.Cos(radians)) * Beta;
-            return new qubit(alpha, beta);
+            double cosine = Math.Cos(radians);
+            double sine = Math.Sin(radians);
+            return new qubit(cosine * Alpha - sine * Beta, sine * Alpha + cosine * Beta);
         }
+
+        public qubit PauliX() => Not();
+
+        public qubit PauliY() => new qubit(-complex.I * Beta, complex.I * Alpha);
+
+        public qubit PauliZ() => new qubit(Alpha, -Beta);
+
+        public qubit PhaseShift(double theta, double phi) =>
+            new qubit(complex.Exp(theta) * Alpha, complex.Exp(phi) * Beta);
 
         /// <summary>
-        /// X gate
-        /// [ 0  1 ]
-        /// [ 1  0 ]
+        /// Applies a controlled NOT to a product input and returns the complete
+        /// two-qubit state, which may be entangled.
         /// </summary>
-        /// <returns></returns>
-        public qubit PauliX()
+        public static TwoQubitState CNOT(qubit control, qubit target)
         {
-            return Not();
+            return TwoQubitState.FromProduct(control, target).CNOT();
         }
 
-        /// <summary>
-        /// Y gate
-        /// [ 0  -i ]
-        /// [ i   0 ]
-        /// </summary>
-        /// <returns></returns>
-        public qubit PauliY()
-        {
-            return new qubit(complex.I * Alpha, -complex.I * Beta);
-        }
+        public bool Equals(qubit? other) =>
+            other is not null && Alpha == other.Alpha && Beta == other.Beta;
 
-        /// <summary>
-        /// Z gate
-        /// [ 1  0 ]
-        /// [ 0 -1 ]
-        /// </summary>
-        /// <returns></returns>
-        public qubit PauliZ()
-        {
-            return new qubit(Alpha, -Beta);
-        }
+        public override bool Equals(object? obj) => obj is qubit other && Equals(other);
 
-        /// <summary>
-        /// Phase shift gate
-        /// [ ieΘ   0  ]
-        /// [  0   ieΦ ]
-        /// </summary>
-        /// <param name="theta"></param>
-        /// <param name="phi"></param>
-        /// <returns></returns>
-        public qubit PhaseShift(double theta, double phi)
-        {
-            return new qubit(complex.Exp(theta) * Alpha, complex.Exp(phi) * Beta);
-        }
+        public override int GetHashCode() => HashCode.Combine(Alpha, Beta);
 
-        /// <summary>
-        /// Controlled not (CNOT) gate.
-        /// [ 1 0 0 0 ]
-        /// [ 0 1 0 0 ]
-        /// [ 0 0 0 1 ]
-        /// [ 0 0 1 0 ]
-        /// 
-        /// The CNOT gate works by combining the two input qubits (control and target) into a vector (of length 4, using tensor product).
-        /// Then it uses the assumption that the output control qubit is constant to calculate the target output qubit.
-        /// </summary>
-        /// <returns>Target qubit affected by the CNOT gate. The target qubit os constant (and is therefore not returned).</returns>
-        public static qubit CNOT(qubit control, qubit target)   // TODO: introduce qubit pair? or Qubit vector?
-        {
-            // First get tensor product of the two qubits
-            complex[] tensorProduct = TensorProduct(control, target);
+        public static bool operator ==(qubit? left, qubit? right) =>
+            ReferenceEquals(left, right) || (left is not null && left.Equals(right));
 
-            // Put result here
-            complex[] result = new complex[4];
+        public static bool operator !=(qubit? left, qubit? right) => !(left == right);
 
-            // Multiply with CNOT gate matrix
-            result[0] = tensorProduct[0];
-            result[1] = tensorProduct[1];
-            result[2] = tensorProduct[3];
-            result[3] = tensorProduct[2];
-
-            // Assumptions
-            // 1) control output qubit α equals control qubit α
-            // 2) control output qubit β equals control qubit β
-            // =>
-            // result[0] = α_control * α2 => α2 = result[0] / α_control 
-            // result[1] = α_control * β2 => β2 = result[1] / α_control
-            // => (or, if α_control is zero)
-            // result[2] = β_control * α2 => α2 = result[2] / β_control
-            // result[3] = β_control * β2 => β2 = result[3] / β_control
-            if (control.Alpha != complex.Zero)
-            {
-                return new qubit(result[0] / control.Alpha, result[1] / control.Alpha);
-            }
-            else
-            {
-                return new qubit(result[2] / control.Beta, result[3] / control.Beta);
-            }
-        }
-
-        /// <summary>
-        /// Performs tensor product of two qubit components.
-        /// See http://www.quantiki.org/wiki/Tensor_product.
-        /// See http://www.cs.miami.edu/~burt/learning/Csc687.041/notes/qgates.html.
-        ///                 [ α1 α2 ]
-        /// [ α1 ] [ α2 ] = [ α1 β2 ]
-        /// [ β1 ] [ β2 ] = [ β1 α2 ]
-        ///                 [ β1 β2 ]
-        /// </summary>
-        /// <param name="q1"></param>
-        /// <param name="q2"></param>
-        /// <returns>Returns an array of four items.</returns>
-        private static complex[] TensorProduct(qubit q1, qubit q2)
-        {
-            return new complex[]
-            {
-                q1.Alpha * q2.Alpha,
-                q1.Alpha * q2.Beta,
-                q1.Beta * q2.Alpha,
-                q1.Beta * q2.Beta
-            };
-        }
-
-        public override string ToString()
-        {
-            var a = Alpha.ToString();
-            var b = Beta.ToString();
-            if (a.Contains('+') || a.Contains('-')) a = "(" + a + ")";
-            if (b.Contains('+') || b.Contains('-')) b = "(" + b + ")";
-            return a + "|0> + " + b + "|1>";
-        }
-
-        public override bool Equals(object obj)
-        {
-            qubit q = (qubit)obj;
-            return q.Alpha.Equals(Alpha) && q.Beta.Equals(Beta);
-        }
-
-        public static bool operator ==(qubit q1, qubit q2)
-        {
-            return q1.Equals(q2);
-        }
-
-        public static bool operator !=(qubit q1, qubit q2)
-        {
-            return !q1.Equals(q2);
-        }
+        public override string ToString() => $"{Alpha}|0> + {Beta}|1>";
     }
 }

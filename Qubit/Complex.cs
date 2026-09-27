@@ -97,10 +97,14 @@ namespace Qubit
             return !c1.Equals(c2);
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
-            complex c = (complex)obj;
-            return c.Real == Real && c.Imaginary == Imaginary;
+            return obj is complex c && c.Real == Real && c.Imaginary == Imaginary;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Real, Imaginary);
         }
 
         // Override the ToString() method to display a complex number 
@@ -130,7 +134,7 @@ namespace Qubit
                     }
                 }
             }
-            return temp;
+            return temp == "" ? "0" : temp;
         }
     }
 }
