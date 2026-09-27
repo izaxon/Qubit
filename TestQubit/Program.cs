@@ -56,6 +56,7 @@ internal static class Program
         Check(new complex(1).Equals((object?)null) == false, "Null-safe complex Equals");
         Check(qubit.Zero!.GetHashCode() == new qubit(1, 0).GetHashCode(), "Equal qubit hashes");
 
+        checks += RegisterChecks.Run();
         Console.WriteLine($"Passed {checks} checks.");
     }
 
