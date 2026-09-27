@@ -29,18 +29,30 @@ namespace Qubit
 
         public static TwoQubitState FromProduct(qubit first, qubit second)
         {
-            ArgumentNullException.ThrowIfNull(first);
-            ArgumentNullException.ThrowIfNull(second);
-            return new TwoQubitState(
-                first.Alpha * second.Alpha,
-                first.Alpha * second.Beta,
-                first.Beta * second.Alpha,
-                first.Beta * second.Beta);
+            return FromRegister(QuantumRegister.FromProduct(first, second));
         }
+
+        public static TwoQubitState FromRegister(QuantumRegister state)
+        {
+            ArgumentNullException.ThrowIfNull(state);
+            if (state.QubitCount != 2)
+            {
+                throw new ArgumentException("The register must contain two qubits.", nameof(state));
+            }
+            return new TwoQubitState(
+                state.Amplitude(0), state.Amplitude(1),
+                state.Amplitude(2), state.Amplitude(3));
+        }
+
+        public QuantumRegister ToRegister() =>
+            new QuantumRegister(2, ZeroZero, ZeroOne, OneZero, OneOne);
 
         /// <summary>Uses the first qubit as control and the second as target.</summary>
         public TwoQubitState CNOT() =>
-            new TwoQubitState(ZeroZero, ZeroOne, OneOne, OneZero);
+            FromRegister(ToRegister().ApplyCNOT(0, 1));
+
+        public bool PhysicallyEquivalentTo(TwoQubitState? other, double tolerance = 1e-10) =>
+            ToRegister().PhysicallyEquivalentTo(other?.ToRegister(), tolerance);
 
         private static double SquaredMagnitude(complex value) =>
             value.Real * value.Real + value.Imaginary * value.Imaginary;

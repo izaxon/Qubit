@@ -57,6 +57,11 @@ namespace Qubit
             return TwoQubitState.FromProduct(control, target).CNOT();
         }
 
+        public QuantumRegister ToRegister() => QuantumRegister.FromProduct(this);
+
+        public bool PhysicallyEquivalentTo(qubit? other, double tolerance = 1e-10) =>
+            ToRegister().PhysicallyEquivalentTo(other?.ToRegister(), tolerance);
+
         public bool Equals(qubit? other) =>
             other is not null && Alpha == other.Alpha && Beta == other.Beta;
 

@@ -1,0 +1,23 @@
+name: Verify
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build Qubit.sln --configuration Release
+      - name: Verify quantum behavior
+        run: dotnet run --project TestQubit/TestQubit.csproj --configuration Release --no-build

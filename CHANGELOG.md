@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased — 2026-09-27
+## Unreleased
+
+### Added
+
+- An immutable `QuantumRegister` state vector for 1–16 qubits, with indexed
+  X, Y, Z, Hadamard, rotation, phase-shift, and CNOT operations.
+- Computational-basis measurement with probabilities, sampled outcomes, and
+  collapsed post-measurement states. A supplied `Random` enables repeatable
+  simulations.
+- Conversion between single-, two-, and multi-qubit representations.
+- `PhysicallyEquivalentTo` for tolerance-based comparison up to global phase,
+  while `Equals` retains exact amplitude comparison.
+- Tests for composed gates, Bell correlations, measurement, inverse operations,
+  and invalid inputs, plus GitHub Actions verification for pushes and PRs.
+
+## 2026-09-27
 
 ### Changed
 
